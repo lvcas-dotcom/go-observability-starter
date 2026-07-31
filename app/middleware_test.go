@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -190,7 +191,8 @@ func TestRecoverPanicRepanicsOnErrAbortHandler(t *testing.T) {
 	}))
 
 	defer func() {
-		if rvr := recover(); rvr != http.ErrAbortHandler {
+		rvr := recover()
+		if err, ok := rvr.(error); !ok || !errors.Is(err, http.ErrAbortHandler) {
 			t.Errorf("recovered %v, want ErrAbortHandler to propagate", rvr)
 		}
 	}()

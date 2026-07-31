@@ -11,7 +11,6 @@ linters:
     - errorlint      # catches %v on errors where %w was meant
     - noctx          # HTTP calls without a context are unstoppable
     - revive
-    - misspell
     - unconvert
     - copyloopvar
     - gocritic
@@ -24,13 +23,18 @@ linters:
           # demanding doc comments on every symbol is pure noise here.
           disabled: true
 
+  # misspell fica de fora: os comentários são em pt-BR e ele só conhece inglês,
+  # então acusa "eles" como "eels" e "momento" como "memento".
+
   exclusions:
     rules:
-      # Table-driven tests read better without an error check on every helper.
+      # Table-driven tests read better without an error check on every helper,
+      # and httptest.NewRequest is the idiomatic call even without a context.
       - path: _test\.go
         linters:
           - errcheck
           - bodyclose
+          - noctx
 
 formatters:
   enable:
