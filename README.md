@@ -10,8 +10,6 @@
 
 ![Grafana overview dashboard](docs/visao-geral.png)
 
-<sub>The dashboards ship in Brazilian Portuguese — see [Using it with your own app](#using-it-with-your-own-app) to adapt them.</sub>
-
 ---
 
 ## Why another one
@@ -281,7 +279,7 @@ and put the URL in `.env` rather than committing it.
 ├── alloy/config.alloy         # Docker log discovery and JSON parsing
 ├── grafana/
 │   ├── provisioning/          # datasources with cross-links, dashboards
-│   └── dashboards/            # overview and Go runtime (pt-BR)
+│   └── dashboards/            # Go App Overview, Go Runtime
 ├── scripts/smoke-test.sh      # end-to-end assertions, also run by CI
 └── docker-compose.yml
 ```

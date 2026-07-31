@@ -12,18 +12,18 @@
       }
     ]
   },
-  "description": "Entranhas do runtime do Go: goroutines, heap, GC e recursos do processo. Toda métrica aqui vem de graça com o client_golang.",
+  "description": "Go runtime internals: goroutines, heap, GC and process resources. Every metric here ships for free with client_golang.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "links": [
-    { "title": "Visão Geral do App Go", "type": "link", "url": "/d/go-app-overview", "icon": "external link", "tags": [] }
+    { "title": "Go App Overview", "type": "link", "url": "/d/go-app-overview", "icon": "external link", "tags": [] }
   ],
   "panels": [
     {
       "type": "stat",
       "title": "Goroutines",
-      "description": "Linha que só sobe e nunca desce é o formato clássico de vazamento de goroutine.",
+      "description": "A line that only ever goes up is the classic shape of a goroutine leak.",
       "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": {
@@ -55,7 +55,7 @@
     },
     {
       "type": "stat",
-      "title": "Heap em uso",
+      "title": "Heap in use",
       "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": {
@@ -80,8 +80,8 @@
     },
     {
       "type": "stat",
-      "title": "Memória residente",
-      "description": "O que o SO acha que o processo custa. É esse número que faz o container levar OOM kill.",
+      "title": "Resident memory",
+      "description": "What the OS thinks the process costs, which is the number that gets a container OOM-killed.",
       "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": {
@@ -136,7 +136,7 @@
     },
     {
       "type": "timeseries",
-      "title": "Goroutines e threads do SO",
+      "title": "Goroutines and OS threads",
       "gridPos": { "h": 9, "w": 12, "x": 0, "y": 4 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": {
@@ -163,13 +163,13 @@
       },
       "targets": [
         { "refId": "A", "editorMode": "code", "expr": "go_goroutines{job=\"go-app\"}", "legendFormat": "goroutines" },
-        { "refId": "B", "editorMode": "code", "expr": "go_threads{job=\"go-app\"}", "legendFormat": "threads do SO" }
+        { "refId": "B", "editorMode": "code", "expr": "go_threads{job=\"go-app\"}", "legendFormat": "os threads" }
       ]
     },
     {
       "type": "timeseries",
-      "title": "Composição da memória",
-      "description": "Heap em uso vs. o alvo do GC do runtime vs. o que o SO realmente reservou.",
+      "title": "Memory breakdown",
+      "description": "Heap in use vs the Go runtime GC target vs what the OS has actually committed.",
       "gridPos": { "h": 9, "w": 12, "x": 12, "y": 4 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": {
@@ -195,16 +195,16 @@
         "tooltip": { "mode": "multi", "sort": "desc" }
       },
       "targets": [
-        { "refId": "A", "editorMode": "code", "expr": "go_memstats_heap_inuse_bytes{job=\"go-app\"}", "legendFormat": "heap em uso" },
-        { "refId": "B", "editorMode": "code", "expr": "go_memstats_stack_inuse_bytes{job=\"go-app\"}", "legendFormat": "stack em uso" },
-        { "refId": "C", "editorMode": "code", "expr": "go_memstats_next_gc_bytes{job=\"go-app\"}", "legendFormat": "alvo do próximo GC" },
-        { "refId": "D", "editorMode": "code", "expr": "process_resident_memory_bytes{job=\"go-app\"}", "legendFormat": "residente (RSS)" }
+        { "refId": "A", "editorMode": "code", "expr": "go_memstats_heap_inuse_bytes{job=\"go-app\"}", "legendFormat": "heap in use" },
+        { "refId": "B", "editorMode": "code", "expr": "go_memstats_stack_inuse_bytes{job=\"go-app\"}", "legendFormat": "stack in use" },
+        { "refId": "C", "editorMode": "code", "expr": "go_memstats_next_gc_bytes{job=\"go-app\"}", "legendFormat": "next GC target" },
+        { "refId": "D", "editorMode": "code", "expr": "process_resident_memory_bytes{job=\"go-app\"}", "legendFormat": "resident (RSS)" }
       ]
     },
     {
       "type": "timeseries",
-      "title": "Pausas do GC por quantil",
-      "description": "Duração das pausas stop-the-world. Quando o p99 dispara mas o handler não fez nada lento, olhe aqui primeiro.",
+      "title": "GC pause quantiles",
+      "description": "Stop-the-world pause duration. When p99 latency spikes but the handler did nothing slow, look here first.",
       "gridPos": { "h": 9, "w": 12, "x": 0, "y": 13 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": {
@@ -234,13 +234,13 @@
           "refId": "A",
           "editorMode": "code",
           "expr": "go_gc_duration_seconds{job=\"go-app\"}",
-          "legendFormat": "quantil {{quantile}}"
+          "legendFormat": "quantile {{quantile}}"
         }
       ]
     },
     {
       "type": "timeseries",
-      "title": "Taxa de alocação e ciclos de GC",
+      "title": "Allocation rate and GC cycles",
       "gridPos": { "h": 9, "w": 12, "x": 12, "y": 13 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": {
@@ -260,11 +260,11 @@
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "bytes alocados/s" },
+            "matcher": { "id": "byName", "options": "bytes allocated/s" },
             "properties": [{ "id": "unit", "value": "Bps" }]
           },
           {
-            "matcher": { "id": "byName", "options": "ciclos de GC/s" },
+            "matcher": { "id": "byName", "options": "GC cycles/s" },
             "properties": [
               { "id": "unit", "value": "short" },
               { "id": "custom.axisPlacement", "value": "right" }
@@ -281,19 +281,19 @@
           "refId": "A",
           "editorMode": "code",
           "expr": "rate(go_memstats_alloc_bytes_total{job=\"go-app\"}[$__rate_interval])",
-          "legendFormat": "bytes alocados/s"
+          "legendFormat": "bytes allocated/s"
         },
         {
           "refId": "B",
           "editorMode": "code",
           "expr": "rate(go_gc_duration_seconds_count{job=\"go-app\"}[$__rate_interval])",
-          "legendFormat": "ciclos de GC/s"
+          "legendFormat": "GC cycles/s"
         }
       ]
     },
     {
       "type": "timeseries",
-      "title": "CPU e file descriptors",
+      "title": "CPU and file descriptors",
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 22 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": {
@@ -313,11 +313,11 @@
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "cores de CPU usados" },
+            "matcher": { "id": "byName", "options": "CPU cores used" },
             "properties": [{ "id": "unit", "value": "percentunit" }]
           },
           {
-            "matcher": { "id": "byName", "options": "file descriptors abertos" },
+            "matcher": { "id": "byName", "options": "open file descriptors" },
             "properties": [
               { "id": "unit", "value": "short" },
               { "id": "custom.axisPlacement", "value": "right" }
@@ -334,13 +334,13 @@
           "refId": "A",
           "editorMode": "code",
           "expr": "rate(process_cpu_seconds_total{job=\"go-app\"}[$__rate_interval])",
-          "legendFormat": "cores de CPU usados"
+          "legendFormat": "CPU cores used"
         },
         {
           "refId": "B",
           "editorMode": "code",
           "expr": "process_open_fds{job=\"go-app\"}",
-          "legendFormat": "file descriptors abertos"
+          "legendFormat": "open file descriptors"
         }
       ]
     }
@@ -348,7 +348,7 @@
   "preload": false,
   "refresh": "10s",
   "schemaVersion": 39,
-  "tags": ["go", "observabilidade", "runtime"],
+  "tags": ["go", "observability", "runtime"],
   "templating": {
     "list": [
       {
@@ -366,7 +366,7 @@
   "time": { "from": "now-30m", "to": "now" },
   "timepicker": { "refresh_intervals": ["5s", "10s", "30s", "1m", "5m"] },
   "timezone": "browser",
-  "title": "Runtime do Go",
+  "title": "Go Runtime",
   "uid": "go-runtime",
   "version": 1,
   "weekStart": ""

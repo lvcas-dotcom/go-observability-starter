@@ -36,7 +36,7 @@ func newMetrics(cfg Config) *metrics {
 		requests: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "http_requests_total",
-				Help: "Total de requisições HTTP, por rota, método e status.",
+				Help: "Total number of HTTP requests handled, by route, method and status.",
 			},
 			[]string{"method", "route", "status"},
 		),
@@ -46,7 +46,7 @@ func newMetrics(cfg Config) *metrics {
 		duration: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name:                            "http_request_duration_seconds",
-				Help:                            "Latência das requisições HTTP em segundos, por rota, método e status.",
+				Help:                            "HTTP request latency in seconds, by route, method and status.",
 				Buckets:                         []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5},
 				NativeHistogramBucketFactor:     1.1,
 				NativeHistogramMaxBucketNumber:  100,
@@ -58,7 +58,7 @@ func newMetrics(cfg Config) *metrics {
 		respSize: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name:    "http_response_size_bytes",
-				Help:    "Tamanho do corpo da resposta HTTP em bytes, por rota.",
+				Help:    "HTTP response body size in bytes, by route.",
 				Buckets: prometheus.ExponentialBuckets(64, 4, 8),
 			},
 			[]string{"route"},
@@ -66,14 +66,14 @@ func newMetrics(cfg Config) *metrics {
 
 		inFlight: prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "http_requests_in_flight",
-			Help: "Requisições HTTP sendo atendidas neste momento.",
+			Help: "Number of HTTP requests currently being served.",
 		}),
 	}
 
 	buildInfo := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "app_build_info",
-			Help: "Metadados de build do serviço; o valor é sempre 1.",
+			Help: "Build metadata of the running service; always 1.",
 		},
 		[]string{"service", "version", "env"},
 	)
