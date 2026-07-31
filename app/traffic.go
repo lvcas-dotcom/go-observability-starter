@@ -87,5 +87,5 @@ func (g *trafficGenerator) fire(ctx context.Context) {
 }
 
 func nextInterval() time.Duration {
-	return minInterval + time.Duration(rand.N(maxInterval-minInterval))
+	return minInterval + rand.N(maxInterval-minInterval)
 }

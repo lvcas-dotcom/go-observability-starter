@@ -42,13 +42,20 @@ func main() {
 // probeHealth faz o binário consultar a si mesmo. A imagem final é distroless
 // e não tem curl nem wget para o HEALTHCHECK do Docker chamar.
 func probeHealth() error {
-	client := &http.Client{Timeout: 3 * time.Second}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 
-	resp, err := client.Get("http://127.0.0.1:" + env("PORT", "8080") + "/healthz")
+	url := "http://127.0.0.1:" + env("PORT", "8080") + "/healthz"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status %s", resp.Status)
