@@ -1,0 +1,55 @@
+global:
+  # 5s is far tighter than you would run in production (15-60s is normal).
+  # It is deliberate here so the dashboards fill in within seconds of boot.
+  scrape_interval: 5s
+  evaluation_interval: 5s
+  external_labels:
+    cluster: go-observability-starter
+    environment: local
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  - job_name: go-app
+    # Com --enable-feature=native-histograms o Prometheus guarda só a versão
+    # nativa e joga fora os buckets clássicos, o que deixa toda query com
+    # _bucket sem dado. Isto mantém as duas representações: os dashboards usam
+    # a clássica, que funciona em qualquer Prometheus, e a nativa fica
+    # disponível no Explore.
+    always_scrape_classic_histograms: true
+    static_configs:
+      - targets: ["app:8080"]
+        labels:
+          service: go-app
+
+  # Everything below is self-monitoring. A stack that cannot tell you when
+  # its own collector is down is not much of an observability stack.
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: loki
+    static_configs:
+      - targets: ["loki:3100"]
+
+  - job_name: tempo
+    static_configs:
+      - targets: ["tempo:3200"]
+
+  - job_name: alloy
+    static_configs:
+      - targets: ["alloy:12345"]
+
+  - job_name: alertmanager
+    static_configs:
+      - targets: ["alertmanager:9093"]
+
+  - job_name: grafana
+    static_configs:
+      - targets: ["grafana:3000"]

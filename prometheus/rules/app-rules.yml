@@ -1,0 +1,100 @@
+groups:
+  # Recording rules pre-compute the expressions the dashboards and alerts use
+  # most. Beyond speed, they give the ratios a single canonical definition, so
+  # a panel and the alert that pages you can never disagree about what "error
+  # rate" means.
+  - name: go-app.recording
+    interval: 15s
+    rules:
+      - record: job:http_requests:rate5m
+        expr: sum by (job) (rate(http_requests_total[5m]))
+
+      - record: job:http_requests_errors:rate5m
+        expr: sum by (job) (rate(http_requests_total{status=~"5.."}[5m]))
+
+      - record: job:http_requests_errors:ratio_rate5m
+        expr: |
+          job:http_requests_errors:rate5m
+            /
+          clamp_min(job:http_requests:rate5m, 1e-9)
+
+      - record: job:http_request_duration_seconds:p95_5m
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (job, le) (rate(http_request_duration_seconds_bucket[5m]))
+          )
+
+      - record: job:http_request_duration_seconds:p99_5m
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (job, le) (rate(http_request_duration_seconds_bucket[5m]))
+          )
+
+  - name: go-app.alerts
+    rules:
+      - alert: AppDown
+        expr: up{job="go-app"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "The Go app is not being scraped"
+          description: >-
+            Prometheus has failed to scrape {{ $labels.instance }} for over 30s.
+            Either the process is down or /metrics stopped responding.
+          runbook: "docker compose ps app && docker compose logs app"
+
+      - alert: HighErrorRate
+        # The demo app fails ~8% of /work calls by design, so this threshold
+        # is set above that to stay quiet until something is genuinely wrong.
+        expr: job:http_requests_errors:ratio_rate5m > 0.15
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "5xx rate above 15% for 2 minutes"
+          description: "Current error ratio is {{ $value | humanizePercentage }}."
+
+      - alert: HighLatencyP95
+        expr: job:http_request_duration_seconds:p95_5m > 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 latency above 1s for 2 minutes"
+          description: "p95 is currently {{ $value | humanizeDuration }}."
+
+      - alert: NoTrafficReceived
+        # Silence is not health. If the demo generator dies, every panel goes
+        # flat and looks perfectly fine — this is what catches that.
+        expr: job:http_requests:rate5m < 0.01
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "The app has served essentially no traffic for 5 minutes"
+          description: >-
+            Expected if you set DEMO_TRAFFIC=false; otherwise the traffic
+            generator has stopped.
+
+      - alert: GoroutineLeakSuspected
+        expr: go_goroutines{job="go-app"} > 500
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Goroutine count has stayed above 500 for 10 minutes"
+          description: "Currently {{ $value }} goroutines; the baseline is well under 50."
+
+  - name: observability-stack.alerts
+    rules:
+      - alert: ObservabilityComponentDown
+        expr: up{job=~"loki|tempo|alloy|alertmanager|grafana"} == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} is down"
+          description: "The observability stack itself is degraded; data may be missing."
