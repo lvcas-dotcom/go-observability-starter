@@ -1,0 +1,81 @@
+apiVersion: 1
+
+# The correlation settings below are the point of this file. Three separate
+# datasources are easy; three datasources that link into each other — metric
+# spike -> exact trace -> the logs that trace emitted -> back to metrics — is
+# what makes the difference between a demo and something you can debug with.
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    jsonData:
+      httpMethod: POST
+      manageAlerts: true
+      prometheusType: Prometheus
+      timeInterval: 5s
+      # Metric -> trace. The Go app attaches the trace ID as an exemplar on
+      # every request; this is what turns those dots on the latency graph
+      # into a one-click jump into Tempo.
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo
+          urlDisplayLabel: View trace
+
+  - name: Loki
+    type: loki
+    uid: loki
+    access: proxy
+    url: http://loki:3100
+    jsonData:
+      # Log -> trace. Alloy stores trace_id as structured metadata rather than
+      # as a label, so the matcher reads it from there.
+      derivedFields:
+        - name: TraceID
+          matcherType: label
+          matcherRegex: trace_id
+          url: "${__value.raw}"
+          urlDisplayLabel: View trace
+          datasourceUid: tempo
+
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    access: proxy
+    url: http://tempo:3200
+    jsonData:
+      # Trace -> logs. Jumps from a span to the log lines carrying the same
+      # trace ID, with a small time window on either side.
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: -5m
+        spanEndTimeShift: 5m
+        filterByTraceID: true
+        filterBySpanID: false
+        tags:
+          - key: service.name
+            value: service
+
+      # Trace -> metrics, using the RED metrics Tempo's generator derives.
+      tracesToMetrics:
+        datasourceUid: prometheus
+        spanStartTimeShift: -5m
+        spanEndTimeShift: 5m
+        queries:
+          - name: Request rate
+            query: sum(rate(traces_spanmetrics_calls_total{$$__tags}[5m]))
+          - name: Error rate
+            query: sum(rate(traces_spanmetrics_calls_total{$$__tags,status_code="STATUS_CODE_ERROR"}[5m]))
+
+      # Powers the Service Graph tab from the span-derived metrics that Tempo
+      # remote-writes into Prometheus.
+      serviceMap:
+        datasourceUid: prometheus
+      nodeGraph:
+        enabled: true
+      streamingEnabled:
+        search: true
+      search:
+        hide: false

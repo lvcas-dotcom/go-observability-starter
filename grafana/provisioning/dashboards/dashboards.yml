@@ -1,0 +1,16 @@
+apiVersion: 1
+
+providers:
+  - name: go-observability-starter
+    orgId: 1
+    type: file
+    disableDeletion: false
+    # false mantém o arquivo como fonte da verdade. Com true, salvar qualquer
+    # ajuste na UI faz o Grafana adotar a cópia do banco e nunca mais aplicar o
+    # arquivo, então um painel arrastado sem querer não volta nem com git pull.
+    # Para experimentar sem perder isso, use "Save as copy" na UI.
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
