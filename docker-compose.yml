@@ -1,0 +1,174 @@
+name: go-observability-starter
+
+# Container logs are the input to this whole pipeline, so they need a cap:
+# an unbounded json-file driver will happily fill the disk if you leave the
+# demo running overnight.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  app:
+    build:
+      context: ./app
+      args:
+        VERSION: ${VERSION:-dev}
+    image: go-observability-starter/app:${VERSION:-dev}
+    container_name: go-app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      PORT: "8080"
+      SERVICE_NAME: go-observability-starter
+      SERVICE_VERSION: ${VERSION:-dev}
+      ENVIRONMENT: local
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Set DEMO_TRAFFIC=false to point the stack at real traffic instead.
+      DEMO_TRAFFIC: ${DEMO_TRAFFIC:-true}
+      OTEL_EXPORTER_OTLP_ENDPOINT: tempo:4318
+      TRACE_SAMPLE_RATE: ${TRACE_SAMPLE_RATE:-1.0}
+    # No condition: service_healthy anywhere in this file on purpose. Every
+    # component here retries on its own (the OTLP exporter buffers, Prometheus
+    # re-scrapes, Alloy re-pushes), so boot order is not load-bearing and
+    # gating on it would only make `up` slower and more brittle.
+    depends_on:
+      - tempo
+    logging: *default-logging
+
+  prometheus:
+    image: prom/prometheus:v3.6.0
+    container_name: prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-24h}
+      - --web.enable-lifecycle
+      # Lets Tempo's metrics generator push span-derived RED metrics back in,
+      # which is what powers the service graph in Grafana.
+      - --web.enable-remote-write-receiver
+      # Exemplars are the metric -> trace jump; without this flag Prometheus
+      # accepts the exemplars off the wire and then throws them away.
+      - --enable-feature=exemplar-storage
+      - --enable-feature=native-histograms
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    depends_on:
+      - app
+    logging: *default-logging
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.0
+    container_name: alertmanager
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    ports:
+      - "${ALERTMANAGER_PORT:-9093}:9093"
+    logging: *default-logging
+
+  loki:
+    image: grafana/loki:3.5.0
+    container_name: loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/config.yaml
+    volumes:
+      - ./loki/loki-config.yaml:/etc/loki/config.yaml:ro
+      - loki-data:/loki
+    ports:
+      - "${LOKI_PORT:-3100}:3100"
+    # Loki's image runs as uid 10001, which cannot write to a fresh named
+    # volume created by the Docker daemon as root.
+    user: "0:0"
+    logging: *default-logging
+
+  tempo:
+    image: grafana/tempo:2.8.0
+    container_name: tempo
+    restart: unless-stopped
+    command: -config.file=/etc/tempo/config.yaml
+    volumes:
+      - ./tempo/tempo-config.yaml:/etc/tempo/config.yaml:ro
+      - tempo-data:/var/tempo
+    ports:
+      - "${TEMPO_PORT:-3200}:3200" # HTTP API / Grafana datasource
+      - "4318:4318"                # OTLP over HTTP
+      - "4317:4317"                # OTLP over gRPC
+    # Same named-volume ownership caveat as Loki above.
+    user: "0:0"
+    logging: *default-logging
+
+  # Alloy replaces Promtail, which Grafana has retired. It tails the Docker
+  # log stream of every container and ships it to Loki.
+  alloy:
+    image: grafana/alloy:v1.10.0
+    container_name: alloy
+    restart: unless-stopped
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy-data:/var/lib/alloy/data
+      # Read-only still grants what is effectively root on the host. It is
+      # acceptable for a local demo; see the security note in the README
+      # before running anything like this anywhere else.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "${ALLOY_PORT:-12345}:12345"
+    # Needed to read the Docker socket.
+    user: root
+    depends_on:
+      - loki
+    logging: *default-logging
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      # Anonymous admin access is a deliberate convenience so the stack is
+      # useful the second it boots. It is also exactly why this compose file
+      # must not be pointed at anything but localhost.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_USERS_DEFAULT_THEME: dark
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      # Opens the dashboard directly instead of the empty Grafana home page.
+      GF_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/go-app-overview.json
+      GF_FEATURE_TOGGLES_ENABLE: traceqlEditor
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    logging: *default-logging
+
+volumes:
+  prometheus-data:
+  alertmanager-data:
+  loki-data:
+  tempo-data:
+  alloy-data:
+  grafana-data:
