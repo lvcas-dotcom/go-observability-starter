@@ -12,7 +12,7 @@
       }
     ]
   },
-  "description": "Métricas RED, logs e correlação com traces do serviço Go de exemplo.",
+  "description": "RED metrics, logs and trace correlation for the sample Go service.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -20,8 +20,8 @@
   "panels": [
     {
       "type": "stat",
-      "title": "Taxa de requisição",
-      "description": "Requisições por segundo somando todas as rotas instrumentadas.",
+      "title": "Request rate",
+      "description": "Requests per second across every instrumented route.",
       "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": {
@@ -51,8 +51,8 @@
     },
     {
       "type": "stat",
-      "title": "Taxa de erro",
-      "description": "Fatia das requisições respondidas com 5xx. O app falha ~8% das chamadas de /work de propósito (os ~3% de 4xx não entram aqui).",
+      "title": "Error rate",
+      "description": "Share of requests answered with a 5xx. The sample app fails ~8% of /work calls on purpose; the ~3% of 4xx are not counted here.",
       "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": {
@@ -85,14 +85,14 @@
           "refId": "A",
           "editorMode": "code",
           "expr": "sum(rate(http_requests_total{job=\"go-app\", route=~\"$route\", status=~\"5..\"}[5m])) / clamp_min(sum(rate(http_requests_total{job=\"go-app\", route=~\"$route\"}[5m])), 1e-9)",
-          "legendFormat": "taxa de erro"
+          "legendFormat": "error ratio"
         }
       ]
     },
     {
       "type": "stat",
-      "title": "Latência p95",
-      "description": "Percentil 95 da duração das requisições.",
+      "title": "Latency p95",
+      "description": "95th percentile request duration.",
       "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": {
@@ -129,8 +129,8 @@
     },
     {
       "type": "stat",
-      "title": "Requisições ativas",
-      "description": "Requisições sendo atendidas agora. Um número que só sobe e não volta significa handler travado.",
+      "title": "In flight",
+      "description": "Requests currently being served. A number that climbs and never comes back down means handlers are stuck.",
       "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": {
@@ -154,13 +154,13 @@
           "refId": "A",
           "editorMode": "code",
           "expr": "sum(http_requests_in_flight{job=\"go-app\"})",
-          "legendFormat": "ativas"
+          "legendFormat": "in flight"
         }
       ]
     },
     {
       "type": "timeseries",
-      "title": "Taxa de requisição por rota",
+      "title": "Request rate by route",
       "gridPos": { "h": 9, "w": 12, "x": 0, "y": 4 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": {
@@ -198,7 +198,7 @@
     },
     {
       "type": "timeseries",
-      "title": "Erros por rota (5xx)",
+      "title": "Errors by route (5xx)",
       "gridPos": { "h": 9, "w": 12, "x": 12, "y": 4 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": {
@@ -234,8 +234,8 @@
     },
     {
       "type": "timeseries",
-      "title": "Percentis de latência",
-      "description": "Os pontinhos são exemplars. Clique num deles para cair direto no trace que gerou aquela amostra de latência.",
+      "title": "Latency percentiles",
+      "description": "The dots are exemplars. Click one to jump straight to the trace that produced that latency sample.",
       "gridPos": { "h": 9, "w": 12, "x": 0, "y": 13 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": {
@@ -287,8 +287,8 @@
     },
     {
       "type": "heatmap",
-      "title": "Distribuição de latência",
-      "description": "O histograma inteiro ao longo do tempo. Linha de percentil esconde comportamento bimodal; heatmap não.",
+      "title": "Latency distribution",
+      "description": "The full histogram over time. Percentile lines hide bimodal behaviour; a heatmap does not.",
       "gridPos": { "h": 9, "w": 12, "x": 12, "y": 13 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": { "defaults": { "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } } }, "overrides": [] },
@@ -317,7 +317,7 @@
     {
       "type": "logs",
       "title": "Logs",
-      "description": "Logs JSON estruturados entregues pelo Alloy. Expanda uma linha e clique no TraceID para abrir o trace correspondente no Tempo.",
+      "description": "Structured JSON logs shipped by Alloy. Expand a line and click its TraceID to open the matching trace in Tempo.",
       "gridPos": { "h": 11, "w": 16, "x": 0, "y": 22 },
       "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
       "options": {
@@ -341,18 +341,18 @@
     },
     {
       "type": "text",
-      "title": "Como usar este dashboard",
+      "title": "How to use this dashboard",
       "gridPos": { "h": 11, "w": 8, "x": 16, "y": 22 },
       "options": {
         "mode": "markdown",
-        "content": "### Siga uma requisição pelos três pilares\n\n**1. Métrica → trace**\nNo painel *Percentis de latência*, clique num dos pontinhos (exemplars). Ele abre no Tempo exatamente o trace por trás daquela amostra de latência.\n\n**2. Log → trace**\nExpanda qualquer linha do painel *Logs* e clique no link **TraceID**.\n\n**3. Trace → logs**\nDentro do trace, use *Logs for this span* para voltar às linhas que aquele span emitiu.\n\n---\n\n### Vale experimentar\n\n- **Service graph**: Explore → Tempo → aba *Service Graph*. Sai das span metrics, sem instrumentação extra.\n- **Só erros**: troque a query do painel de logs por `{container=\"go-app\"} | json | level=\"ERROR\"`.\n- **Runtime do Go**: goroutines, heap e GC estão no outro dashboard.\n- **Alertas**: as regras estão em `prometheus/rules/`; o estado fica no [Alertmanager](http://localhost:9093).\n\n---\n\n*De propósito, o app responde ~3% das chamadas de `/work` com 400, falha ~8% com 500 e manda 10% pelo caminho lento. Sem isso estes painéis não teriam o que mostrar.*"
+        "content": "### Follow one request across all three pillars\n\n**1. Metric → trace**\nOn *Latency percentiles*, click one of the exemplar dots. It opens the exact trace behind that latency sample in Tempo.\n\n**2. Log → trace**\nExpand any line in the *Logs* panel and click the **TraceID** link.\n\n**3. Trace → logs**\nInside a trace, use *Logs for this span* to get back to the lines that span emitted.\n\n---\n\n### Worth trying\n\n- **Service graph**: Explore → Tempo → *Service Graph* tab. Built from span metrics, no extra instrumentation.\n- **Errors only**: switch the Logs query to `{container=\"go-app\"} | json | level=\"ERROR\"`.\n- **Go runtime**: goroutines, heap and GC live on the other dashboard.\n- **Alerts**: rules live in `prometheus/rules/`; state is at [Alertmanager](http://localhost:9093).\n\n---\n\n*On purpose, the sample app answers ~3% of `/work` calls with a 400, fails ~8% with a 500, and sends 10% down a slow path. Without that these panels would have nothing to show.*"
       }
     }
   ],
   "preload": false,
   "refresh": "10s",
   "schemaVersion": 39,
-  "tags": ["go", "observabilidade", "metodo-red"],
+  "tags": ["go", "observability", "red-method"],
   "templating": {
     "list": [
       {
@@ -377,7 +377,7 @@
       },
       {
         "name": "route",
-        "label": "Rota",
+        "label": "Route",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
         "query": { "qryType": 1, "query": "label_values(http_requests_total{job=\"go-app\"}, route)", "refId": "route" },
@@ -395,7 +395,7 @@
   "time": { "from": "now-15m", "to": "now" },
   "timepicker": { "refresh_intervals": ["5s", "10s", "30s", "1m", "5m"] },
   "timezone": "browser",
-  "title": "Visão Geral do App Go",
+  "title": "Go App Overview",
   "uid": "go-app-overview",
   "version": 1,
   "weekStart": ""

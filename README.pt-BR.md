@@ -68,7 +68,7 @@ Requer Docker com o plugin Compose v2. `make up` faz o mesmo e imprime os links.
 
 Essa é a parte que vale realmente fazer — é pra isso que o repositório existe.
 
-**1. Métrica → trace.** No painel *Percentis de latência*, ache um dos pontinhos
+**1. Métrica → trace.** No painel *Latency percentiles*, ache um dos pontinhos
 na linha do p95. São exemplars. Clique em um e o Grafana abre exatamente o
 trace que produziu aquela amostra de latência, span por span. Você vai cair num
 span `query-database` que levou 800ms porque o app coloca 10% das requisições
@@ -282,7 +282,7 @@ no `.env` em vez de commitar.
 ├── alloy/config.alloy         # descoberta de logs no Docker e parse de JSON
 ├── grafana/
 │   ├── provisioning/          # datasources com cross-links, dashboards
-│   └── dashboards/            # visão geral e runtime do Go
+│   └── dashboards/            # Go App Overview, Go Runtime
 ├── scripts/smoke-test.sh      # verificações ponta a ponta, usado pelo CI
 └── docker-compose.yml
 ```
