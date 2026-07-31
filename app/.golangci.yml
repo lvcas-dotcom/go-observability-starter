@@ -1,0 +1,38 @@
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - bodyclose      # a leaked response body is a slow resource leak
+    - errorlint      # catches %v on errors where %w was meant
+    - noctx          # HTTP calls without a context are unstoppable
+    - revive
+    - misspell
+    - unconvert
+    - copyloopvar
+    - gocritic
+
+  settings:
+    revive:
+      rules:
+        - name: exported
+          # This is a main package: nothing is imported by anyone else, so
+          # demanding doc comments on every symbol is pure noise here.
+          disabled: true
+
+  exclusions:
+    rules:
+      # Table-driven tests read better without an error check on every helper.
+      - path: _test\.go
+        linters:
+          - errcheck
+          - bodyclose
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

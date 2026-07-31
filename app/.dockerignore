@@ -1,0 +1,11 @@
+# Keep the build context to what the build actually needs: a smaller context
+# uploads faster and stops stray local files from busting the layer cache.
+*_test.go
+testdata/
+.git/
+.gitignore
+Dockerfile
+.dockerignore
+README.md
+*.md
+coverage.out
