@@ -1,0 +1,59 @@
+# Single-binary Tempo with local block storage. Same caveat as the Loki
+# config: this is shaped for a laptop, not for a cluster.
+stream_over_http_enabled: true
+
+server:
+  http_listen_port: 3200
+  log_level: warn
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+ingester:
+  # Short blocks mean a span is queryable within a minute or so instead of
+  # after the default flush window. Worth it for a demo, wasteful in prod.
+  max_block_duration: 5m
+
+compactor:
+  compaction:
+    block_retention: 24h
+
+storage:
+  trace:
+    backend: local
+    wal:
+      path: /var/tempo/wal
+    local:
+      path: /var/tempo/blocks
+
+# The metrics generator turns spans into RED metrics and service-graph edges,
+# then remote-writes them into Prometheus. This is what makes Grafana's
+# Service Graph tab render something instead of sitting empty.
+metrics_generator:
+  registry:
+    external_labels:
+      source: tempo
+      cluster: go-observability-starter
+  storage:
+    path: /var/tempo/generator/wal
+    remote_write:
+      - url: http://prometheus:9090/api/v1/write
+        send_exemplars: true
+  traces_storage:
+    path: /var/tempo/generator/traces
+
+overrides:
+  defaults:
+    metrics_generator:
+      processors:
+        - service-graphs
+        - span-metrics
+
+usage_report:
+  reporting_enabled: false
