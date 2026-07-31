@@ -1,0 +1,105 @@
+// Grafana Alloy replaces Promtail, which reached end of life. It discovers
+// every container on the Docker socket, tails its stdout, parses the JSON the
+// Go app emits, and pushes the result to Loki.
+
+logging {
+  level  = "warn"
+  format = "logfmt"
+}
+
+discovery.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  // Docker reports names as "/go-app"; strip the leading slash so the label
+  // matches what you would actually type in a query.
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_log_stream"]
+    target_label  = "stream"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+
+  rule {
+    target_label = "job"
+    replacement  = "docker"
+  }
+}
+
+loki.source.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  targets          = discovery.relabel.containers.output
+  forward_to       = [loki.process.parse.receiver]
+  refresh_interval = "5s"
+}
+
+loki.process "parse" {
+  forward_to = [loki.write.default.receiver]
+
+  // Pull the fields out of the app's slog JSON output.
+  stage.json {
+    expressions = {
+      time     = "time",
+      level    = "level",
+      trace_id = "trace_id",
+      span_id  = "span_id",
+      route    = "route",
+      status   = "status",
+      msg      = "msg",
+    }
+  }
+
+  // Only `level` becomes a real label. Labels are an index in Loki, and every
+  // distinct value multiplies the number of streams — putting trace_id here
+  // would create one stream per request and melt the ingester.
+  stage.labels {
+    values = {
+      level = "",
+    }
+  }
+
+  // Structured metadata is the right home for high-cardinality context: it
+  // travels with the log line and stays queryable, without becoming an index
+  // entry. This is what Grafana's derived field turns into a Tempo link.
+  stage.structured_metadata {
+    values = {
+      trace_id = "",
+      span_id  = "",
+      route    = "",
+      status   = "",
+    }
+  }
+
+  // Use the app's own timestamp so a slow shipping pipeline does not skew
+  // when the line appears on the graph.
+  stage.timestamp {
+    source = "time"
+    format = "RFC3339Nano"
+    // Falling back to ingestion time is better than dropping the line when a
+    // container logs something that is not the app's JSON.
+    action_on_failure = "fudge"
+  }
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+// Alloy already serves its own metrics on :12345/metrics, and Prometheus
+// scrapes that endpoint directly (see prometheus/prometheus.yml), so there is
+// no exporter or remote_write to declare here.

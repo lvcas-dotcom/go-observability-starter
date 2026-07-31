@@ -1,0 +1,65 @@
+# Single-binary Loki, sized for a laptop. Do not copy this file into a real
+# deployment: it uses local filesystem storage and a single replica.
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+  log_level: warn
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    # TSDB with schema v13, not the boltdb-shipper/v11 pair that most older
+    # tutorials still show. Both of those are deprecated, and structured
+    # metadata — which is how the trace_id rides along with each log line —
+    # requires v13.
+    - from: "2024-01-01"
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+storage_config:
+  tsdb_shipper:
+    active_index_directory: /loki/tsdb-index
+    cache_location: /loki/tsdb-cache
+
+limits_config:
+  # Required for the trace_id -> Tempo link to work without burning a label.
+  allow_structured_metadata: true
+  volume_enabled: true
+  retention_period: 168h
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+  ingestion_rate_mb: 16
+  ingestion_burst_size_mb: 32
+
+compactor:
+  working_directory: /loki/compactor
+  delete_request_store: filesystem
+  # Without this, retention_period above is silently ignored and the disk
+  # just keeps growing.
+  retention_enabled: true
+
+ruler:
+  storage:
+    type: local
+    local:
+      directory: /loki/rules
+
+analytics:
+  reporting_enabled: false
