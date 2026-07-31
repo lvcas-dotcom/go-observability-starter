@@ -1,0 +1,25 @@
+# Build output
+/bin/
+/dist/
+app/server
+app/app
+
+# Test and coverage artifacts
+*.out
+*.test
+coverage.*
+
+# Local environment overrides — never commit real webhook URLs or tokens
+.env
+.env.local
+docker-compose.override.yml
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# Local data written by the stack when volumes are bind-mounted instead
+/data/
