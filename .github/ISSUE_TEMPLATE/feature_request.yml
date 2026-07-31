@@ -1,0 +1,35 @@
+name: Feature request
+description: Suggest something this starter should include
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve
+      description: >-
+        This starter aims to stay small enough to read in one sitting, so the
+        bar for new components is "teaches something the current stack cannot".
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you have in mind
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Go app / instrumentation
+        - Metrics and alerting
+        - Logs
+        - Traces
+        - Dashboards
+        - Tooling and CI
+        - Docs
+    validations:
+      required: true

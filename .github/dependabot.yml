@@ -1,0 +1,27 @@
+version: 2
+
+updates:
+  - package-ecosystem: gomod
+    directory: /app
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # OpenTelemetry ships its modules in lockstep; bumping them one PR at a
+      # time just produces a pile of builds that cannot compile.
+      otel:
+        patterns:
+          - "go.opentelemetry.io/*"
+      golang-x:
+        patterns:
+          - "golang.org/x/*"
+
+  - package-ecosystem: docker
+    directory: /app
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

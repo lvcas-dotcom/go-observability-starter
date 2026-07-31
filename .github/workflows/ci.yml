@@ -1,0 +1,133 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: "1.26"
+
+jobs:
+  go:
+    name: Go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: app/go.sum
+
+      - name: Verify go.mod is tidy
+        working-directory: app
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum \
+            || { echo "::error::go.mod/go.sum are not tidy — run 'make tidy' and commit the result"; exit 1; }
+
+      - name: Verify module checksums
+        working-directory: app
+        run: go mod verify
+
+      - name: Vet
+        working-directory: app
+        run: go vet ./...
+
+      - name: Test
+        working-directory: app
+        run: go test -race -count=1 -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Build
+        working-directory: app
+        run: go build -trimpath ./...
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: app/coverage.out
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: app/go.sum
+
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: app
+
+      - name: Shellcheck
+        run: shellcheck scripts/*.sh
+
+  configs:
+    name: Stack configs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Every config in this repo is machine-checkable, so none of them get to
+      # drift silently into being wrong.
+      - name: Validate the compose file
+        run: docker compose config --quiet
+
+      - name: Validate Prometheus config and rules
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work --entrypoint promtool prom/prometheus:v3.6.0 \
+            check config /work/prometheus/prometheus.yml
+          docker run --rm -v "$PWD:/work" -w /work --entrypoint promtool prom/prometheus:v3.6.0 \
+            check rules /work/prometheus/rules/app-rules.yml
+
+      - name: Validate Alertmanager config
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work --entrypoint amtool prom/alertmanager:v0.28.0 \
+            check-config /work/alertmanager/alertmanager.yml
+
+      # The alloy image's entrypoint is the binary itself, so no override.
+      - name: Validate Alloy config
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work grafana/alloy:v1.10.0 \
+            validate /work/alloy/config.alloy
+
+      - name: Validate dashboard JSON
+        run: |
+          for f in grafana/dashboards/*.json; do
+            python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f" && echo "OK $f"
+          done
+
+  smoke:
+    name: Smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # The README promises the whole stack works after one command. This is
+      # the job that keeps that promise honest.
+      - name: Boot the stack and assert it works end to end
+        run: ./scripts/smoke-test.sh
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose logs --tail 200
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v --remove-orphans
