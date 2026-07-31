@@ -1,0 +1,47 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: default
+  group_by: [alertname, job]
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 4h
+
+  routes:
+    # Critical alerts skip most of the batching so they surface immediately.
+    - receiver: default
+      matchers:
+        - severity = "critical"
+      group_wait: 0s
+      repeat_interval: 1h
+
+inhibit_rules:
+  # If the app is down entirely, the error-rate and latency alerts it drags
+  # along add noise without adding information.
+  - source_matchers:
+      - alertname = "AppDown"
+    target_matchers:
+      - severity =~ "warning|critical"
+    equal: [job]
+
+receivers:
+  # The default receiver goes nowhere on purpose: this stack must not depend
+  # on any external service to boot. Alerts are still fully visible at
+  # http://localhost:9093 and in Grafana's Alerting section.
+  #
+  # To actually get notified, uncomment one of the blocks below and put your
+  # webhook in a .env file rather than committing it.
+  - name: default
+
+  # - name: default
+  #   slack_configs:
+  #     - api_url: ${SLACK_WEBHOOK_URL}
+  #       channel: "#alerts"
+  #       title: '{{ .CommonAnnotations.summary }}'
+  #       text: '{{ .CommonAnnotations.description }}'
+
+  # - name: default
+  #   webhook_configs:
+  #     - url: https://example.com/your-webhook
+  #       send_resolved: true
